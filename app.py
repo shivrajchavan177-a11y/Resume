@@ -24,58 +24,75 @@ st.markdown("""
 <style>
 
 .main {
-    background-color: #0E1117;
+    background-color: #F5F7FA;
+}
+
+.block-container {
+    padding-top: 2rem;
 }
 
 h1, h2, h3 {
-    color: white;
+    color: #1E293B;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #E2E8F0;
+}
+
+.metric-card {
+    background-color: #FFFFFF;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+}
+
+.metric-card h2 {
+    color: #2563EB;
+    margin: 0;
+}
+
+.metric-card p {
+    color: #475569;
+    margin-top: 5px;
 }
 
 .skill-box {
-    padding: 10px;
+    padding: 12px;
     border-radius: 10px;
-    margin: 5px;
-    font-weight: bold;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: white;
 }
 
 .matched {
-    background-color: #1e5631;
-    color: white;
+    background-color: #22C55E;
 }
 
 .missing {
-    background-color: #7a1f1f;
-    color: white;
-}
-
-.score-box {
-    text-align: center;
-    padding: 20px;
-    border-radius: 15px;
-    background-color: #262730;
-    color: white;
-    margin-bottom: 20px;
+    background-color: #EF4444;
 }
 
 .decision-box {
-    text-align: center;
     padding: 20px;
     border-radius: 15px;
-    font-size: 28px;
+    text-align: center;
+    font-size: 30px;
     font-weight: bold;
     color: white;
+    margin-top: 20px;
 }
 
 .shortlisted {
-    background-color: #1e5631;
+    background-color: #16A34A;
 }
 
 .maybe {
-    background-color: #8a6d1d;
+    background-color: #F59E0B;
 }
 
 .rejected {
-    background-color: #7a1f1f;
+    background-color: #DC2626;
 }
 
 </style>
@@ -98,7 +115,7 @@ common_skills = pickle.load(
 # =====================================================
 
 st.markdown("""
-<h1 style='text-align: center;'>
+<h1 style='text-align:center;'>
 Smart Resume Screening System
 </h1>
 """, unsafe_allow_html=True)
@@ -109,16 +126,17 @@ st.divider()
 # SIDEBAR
 # =====================================================
 
-st.sidebar.header("Upload Resume")
+st.sidebar.header("Resume Screening")
 
 job_role = st.sidebar.selectbox(
     "Select Job Role",
     list(JOB_ROLES.keys())
 )
 
-uploaded_file = st.sidebar.file_uploader(
-    "Upload Resume PDF",
-    type=["pdf"]
+uploaded_files = st.sidebar.file_uploader(
+    "Upload Multiple Resume PDFs",
+    type=["pdf"],
+    accept_multiple_files=True
 )
 
 # =====================================================
@@ -176,256 +194,260 @@ def extract_skills(text):
 # MAIN LOGIC
 # =====================================================
 
-if uploaded_file is not None:
-
-    # -------------------------------------------------
-    # Extract Resume Text
-    # -------------------------------------------------
-
-    resume_text = extract_text(uploaded_file)
-
-    resume_text = clean_text(resume_text)
-
-    # -------------------------------------------------
-    # Extract Skills
-    # -------------------------------------------------
-
-    resume_skills = extract_skills(resume_text)
-
-    # -------------------------------------------------
-    # Required Skills
-    # -------------------------------------------------
+if uploaded_files:
 
     required_skills = JOB_ROLES[job_role]
 
-    # -------------------------------------------------
-    # Matched Skills
-    # -------------------------------------------------
+    results = []
 
-    matched_skills = list(
-        set(resume_skills) &
-        set(required_skills)
+    for uploaded_file in uploaded_files:
+
+        # -------------------------------------------------
+        # Resume Name
+        # -------------------------------------------------
+
+        candidate_name = uploaded_file.name
+
+        # -------------------------------------------------
+        # Extract Resume Text
+        # -------------------------------------------------
+
+        resume_text = extract_text(uploaded_file)
+
+        resume_text = clean_text(resume_text)
+
+        # -------------------------------------------------
+        # Extract Skills
+        # -------------------------------------------------
+
+        resume_skills = extract_skills(resume_text)
+
+        # -------------------------------------------------
+        # Matched Skills
+        # -------------------------------------------------
+
+        matched_skills = list(
+            set(resume_skills) &
+            set(required_skills)
+        )
+
+        # -------------------------------------------------
+        # Missing Skills
+        # -------------------------------------------------
+
+        missing_skills = list(
+            set(required_skills) -
+            set(resume_skills)
+        )
+
+        # -------------------------------------------------
+        # TF-IDF INPUT
+        # -------------------------------------------------
+
+        combined_text = (
+            " ".join(resume_skills)
+            + " "
+            + job_role.lower()
+        )
+
+        vector = tfidf.transform([combined_text])
+
+        # =================================================
+        # ML SCORE
+        # =================================================
+
+        ml_score = model.predict(vector)[0] * 10
+
+        ml_score = max(1, min(10, ml_score))
+
+        # =================================================
+        # SKILL MATCH SCORE
+        # =================================================
+
+        match_percent = (
+            len(matched_skills) /
+            len(required_skills)
+        )
+
+        base_score = match_percent * 10
+
+        # =================================================
+        # COSINE SIMILARITY
+        # =================================================
+
+        resume_text_for_similarity = (
+            " ".join(resume_skills)
+        )
+
+        role_text = (
+            " ".join(required_skills)
+        )
+
+        resume_vector = tfidf.transform(
+            [resume_text_for_similarity]
+        )
+
+        role_vector = tfidf.transform(
+            [role_text]
+        )
+
+        similarity = cosine_similarity(
+            resume_vector,
+            role_vector
+        )[0][0]
+
+        similarity_score = similarity * 10
+
+        # =================================================
+        # FINAL SCORE
+        # =================================================
+
+        predicted_score = (
+            base_score * 0.85 +
+            similarity_score * 0.10 +
+            ml_score * 0.05
+        )
+
+        # Prevent Unrealistic High Scores
+
+        if len(matched_skills) <= 1:
+
+            predicted_score = min(predicted_score, 4)
+
+        elif len(matched_skills) <= 2:
+
+            predicted_score = min(predicted_score, 6)
+
+        predicted_score = max(1, min(10, predicted_score))
+
+        predicted_score = round(predicted_score, 1)
+
+        # =================================================
+        # FINAL DECISION
+        # =================================================
+
+        if predicted_score >= 8:
+
+            decision = "SHORTLISTED"
+            decision_class = "shortlisted"
+
+        elif predicted_score >= 5:
+
+            decision = "MAYBE"
+            decision_class = "maybe"
+
+        else:
+
+            decision = "REJECTED"
+            decision_class = "rejected"
+
+        # =================================================
+        # STORE RESULTS
+        # =================================================
+
+        results.append({
+            "name": candidate_name,
+            "score": predicted_score,
+            "decision": decision,
+            "decision_class": decision_class,
+            "matched": matched_skills,
+            "missing": missing_skills
+        })
+
+    # =====================================================
+    # SORT RESULTS
+    # =====================================================
+
+    results = sorted(
+        results,
+        key=lambda x: x["score"],
+        reverse=True
     )
 
-    # -------------------------------------------------
-    # Missing Skills
-    # -------------------------------------------------
+    # =====================================================
+    # DISPLAY RESULTS
+    # =====================================================
 
-    missing_skills = list(
-        set(required_skills) -
-        set(resume_skills)
-    )
+    st.subheader("Resume Ranking")
 
-    # -------------------------------------------------
-    # TF-IDF INPUT
-    # -------------------------------------------------
+    rank = 1
 
-    combined_text = (
-        " ".join(resume_skills)
-        + " "
-        + job_role.lower()
-    )
-
-    vector = tfidf.transform([combined_text])
-
-    # =================================================
-    # ML SCORE
-    # =================================================
-
-    ml_score = model.predict(vector)[0] * 10
-
-    ml_score = max(1, min(10, ml_score))
-
-    # =================================================
-    # SKILL MATCH SCORE
-    # =================================================
-
-    match_percent = (
-        len(matched_skills) /
-        len(required_skills)
-    )
-
-    base_score = match_percent * 10
-
-    # =================================================
-    # COSINE SIMILARITY SCORE
-    # =================================================
-
-    resume_text_for_similarity = (
-        " ".join(resume_skills)
-    )
-
-    role_text = (
-        " ".join(required_skills)
-    )
-
-    resume_vector = tfidf.transform(
-        [resume_text_for_similarity]
-    )
-
-    role_vector = tfidf.transform(
-        [role_text]
-    )
-
-    similarity = cosine_similarity(
-        resume_vector,
-        role_vector
-    )[0][0]
-
-    similarity_score = similarity * 10
-
-    # =================================================
-    # FINAL HYBRID SCORE
-    # =================================================
-
-    predicted_score = (
-        base_score * 0.85 +
-        similarity_score * 0.10 +
-        ml_score * 0.05
-    )
-
-    # Prevent Unrealistic Scores
-
-    if len(matched_skills) <= 1:
-
-        predicted_score = min(predicted_score, 4)
-
-    elif len(matched_skills) <= 2:
-
-        predicted_score = min(predicted_score, 6)
-
-    predicted_score = max(1, min(10, predicted_score))
-
-    predicted_score = round(predicted_score, 1)
-
-    # =================================================
-    # FINAL DECISION
-    # =================================================
-
-    if predicted_score >= 8:
-
-        decision = "SHORTLISTED"
-        decision_class = "shortlisted"
-
-    elif predicted_score >= 5:
-
-        decision = "MAYBE"
-        decision_class = "maybe"
-
-    else:
-
-        decision = "REJECTED"
-        decision_class = "rejected"
-
-    # =================================================
-    # TOP METRICS
-    # =================================================
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
+    for result in results:
 
         st.markdown(f"""
-        <div class='score-box'>
-            <h2>{predicted_score}/10</h2>
+        <div class='metric-card'>
+            <h2>#{rank} - {result['name']}</h2>
+            <h2>{result['score']}/10</h2>
             <p>ATS Match Score</p>
         </div>
         """, unsafe_allow_html=True)
 
-    with col2:
+        st.progress(float(result['score']) / 10)
+
+        # -------------------------------------------------
+        # Skills Columns
+        # -------------------------------------------------
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.subheader("Matched Skills")
+
+            if result["matched"]:
+
+                for skill in result["matched"]:
+
+                    st.markdown(
+                        f"""
+                        <div class='skill-box matched'>
+                        {skill}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+            else:
+
+                st.warning("No matched skills")
+
+        with col2:
+
+            st.subheader("Missing Skills")
+
+            if result["missing"]:
+
+                for skill in result["missing"]:
+
+                    st.markdown(
+                        f"""
+                        <div class='skill-box missing'>
+                        {skill}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+            else:
+
+                st.success("No missing skills")
+
+        # -------------------------------------------------
+        # Final Decision
+        # -------------------------------------------------
 
         st.markdown(f"""
-        <div class='score-box'>
-            <h2>{len(matched_skills)}</h2>
-            <p>Matched Skills</p>
+        <div class='decision-box {result['decision_class']}'>
+            {result['decision']}
         </div>
         """, unsafe_allow_html=True)
 
-    with col3:
+        st.divider()
 
-        st.markdown(f"""
-        <div class='score-box'>
-            <h2>{len(missing_skills)}</h2>
-            <p>Missing Skills</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # =================================================
-    # PROGRESS BAR
-    # =================================================
-
-    st.progress(float(predicted_score) / 10)
-
-    st.divider()
-
-    # =================================================
-    # SKILLS SECTION
-    # =================================================
-
-    left, right = st.columns(2)
-
-    # -------------------------------------------------
-    # MATCHED SKILLS
-    # -------------------------------------------------
-
-    with left:
-
-        st.subheader("Matched Skills")
-
-        if matched_skills:
-
-            for skill in matched_skills:
-
-                st.markdown(
-                    f"""
-                    <div class='skill-box matched'>
-                    {skill}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-        else:
-
-            st.warning("No matched skills found")
-
-    # -------------------------------------------------
-    # MISSING SKILLS
-    # -------------------------------------------------
-
-    with right:
-
-        st.subheader("Missing Skills")
-
-        if missing_skills:
-
-            for skill in missing_skills:
-
-                st.markdown(
-                    f"""
-                    <div class='skill-box missing'>
-                    {skill}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-        else:
-
-            st.success("No missing skills")
-
-    st.divider()
-
-    # =================================================
-    # FINAL DECISION
-    # =================================================
-
-    st.markdown(f"""
-    <div class='decision-box {decision_class}'>
-        {decision}
-    </div>
-    """, unsafe_allow_html=True)
+        rank += 1
 
 else:
 
-    st.info("Upload a resume PDF to start screening.")
+    st.info(
+        "Upload one or more resume PDFs to start screening."
+    )
