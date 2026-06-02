@@ -13,8 +13,73 @@ from skills import JOB_ROLES
 
 st.set_page_config(
     page_title="Smart Resume Screening System",
-    layout="centered"
+    layout="wide"
 )
+
+# =====================================================
+# CUSTOM CSS
+# =====================================================
+
+st.markdown("""
+<style>
+
+.main {
+    background-color: #0E1117;
+}
+
+h1, h2, h3 {
+    color: white;
+}
+
+.skill-box {
+    padding: 10px;
+    border-radius: 10px;
+    margin: 5px;
+    font-weight: bold;
+}
+
+.matched {
+    background-color: #1e5631;
+    color: white;
+}
+
+.missing {
+    background-color: #7a1f1f;
+    color: white;
+}
+
+.score-box {
+    text-align: center;
+    padding: 20px;
+    border-radius: 15px;
+    background-color: #262730;
+    color: white;
+    margin-bottom: 20px;
+}
+
+.decision-box {
+    text-align: center;
+    padding: 20px;
+    border-radius: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+}
+
+.shortlisted {
+    background-color: #1e5631;
+}
+
+.maybe {
+    background-color: #8a6d1d;
+}
+
+.rejected {
+    background-color: #7a1f1f;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # =====================================================
 # LOAD FILES
@@ -32,24 +97,26 @@ common_skills = pickle.load(
 # TITLE
 # =====================================================
 
-st.title("Smart Resume Screening System")
+st.markdown("""
+<h1 style='text-align: center;'>
+Smart Resume Screening System
+</h1>
+""", unsafe_allow_html=True)
 
 st.divider()
 
 # =====================================================
-# JOB ROLE
+# SIDEBAR
 # =====================================================
 
-job_role = st.selectbox(
+st.sidebar.header("Upload Resume")
+
+job_role = st.sidebar.selectbox(
     "Select Job Role",
     list(JOB_ROLES.keys())
 )
 
-# =====================================================
-# FILE UPLOAD
-# =====================================================
-
-uploaded_file = st.file_uploader(
+uploaded_file = st.sidebar.file_uploader(
     "Upload Resume PDF",
     type=["pdf"]
 )
@@ -217,9 +284,7 @@ if uploaded_file is not None:
         ml_score * 0.05
     )
 
-    # -------------------------------------------------
-    # Prevent Unrealistic High Scores
-    # -------------------------------------------------
+    # Prevent Unrealistic Scores
 
     if len(matched_skills) <= 1:
 
@@ -240,80 +305,127 @@ if uploaded_file is not None:
     if predicted_score >= 8:
 
         decision = "SHORTLISTED"
+        decision_class = "shortlisted"
 
     elif predicted_score >= 5:
 
         decision = "MAYBE"
+        decision_class = "maybe"
 
     else:
 
         decision = "REJECTED"
+        decision_class = "rejected"
 
     # =================================================
-    # RESULTS SECTION
+    # TOP METRICS
     # =================================================
 
-    st.divider()
+    col1, col2, col3 = st.columns(3)
 
-    st.subheader("Resume Screening Result")
+    with col1:
 
-    # -------------------------------------------------
-    # ATS SCORE
-    # -------------------------------------------------
+        st.markdown(f"""
+        <div class='score-box'>
+            <h2>{predicted_score}/10</h2>
+            <p>ATS Match Score</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.metric(
-        label="ATS Match Score",
-        value=f"{predicted_score}/10"
-    )
+    with col2:
+
+        st.markdown(f"""
+        <div class='score-box'>
+            <h2>{len(matched_skills)}</h2>
+            <p>Matched Skills</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+
+        st.markdown(f"""
+        <div class='score-box'>
+            <h2>{len(missing_skills)}</h2>
+            <p>Missing Skills</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # =================================================
+    # PROGRESS BAR
+    # =================================================
 
     st.progress(float(predicted_score) / 10)
 
+    st.divider()
+
     # =================================================
+    # SKILLS SECTION
+    # =================================================
+
+    left, right = st.columns(2)
+
+    # -------------------------------------------------
     # MATCHED SKILLS
-    # =================================================
+    # -------------------------------------------------
 
-    st.subheader("Matched Skills")
+    with left:
 
-    if matched_skills:
+        st.subheader("Matched Skills")
 
-        for skill in matched_skills:
+        if matched_skills:
 
-            st.success(skill)
+            for skill in matched_skills:
 
-    else:
+                st.markdown(
+                    f"""
+                    <div class='skill-box matched'>
+                    {skill}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        st.warning("No matched skills found")
+        else:
 
-    # =================================================
+            st.warning("No matched skills found")
+
+    # -------------------------------------------------
     # MISSING SKILLS
-    # =================================================
+    # -------------------------------------------------
 
-    st.subheader("Missing Skills")
+    with right:
 
-    if missing_skills:
+        st.subheader("Missing Skills")
 
-        for skill in missing_skills:
+        if missing_skills:
 
-            st.error(skill)
+            for skill in missing_skills:
 
-    else:
+                st.markdown(
+                    f"""
+                    <div class='skill-box missing'>
+                    {skill}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        st.success("No missing skills")
+        else:
+
+            st.success("No missing skills")
+
+    st.divider()
 
     # =================================================
     # FINAL DECISION
     # =================================================
 
-    st.subheader("Final Decision")
+    st.markdown(f"""
+    <div class='decision-box {decision_class}'>
+        {decision}
+    </div>
+    """, unsafe_allow_html=True)
 
-    if decision == "SHORTLISTED":
+else:
 
-        st.success("SHORTLISTED")
-
-    elif decision == "MAYBE":
-
-        st.warning("MAYBE")
-
-    else:
-
-        st.error("REJECTED")
+    st.info("Upload a resume PDF to start screening.")
