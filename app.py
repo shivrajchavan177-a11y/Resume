@@ -33,7 +33,20 @@ common_skills = pickle.load(
 # TITLE
 # =====================================================
 
-st.title("Smart Resume Screening System")
+st.title("📄 AI Resume Screening System")
+
+st.markdown("""
+### AI-Powered ATS Resume Analyzer
+
+This system:
+
+✅ Extracts skills from resume  
+✅ Compares with industry job roles  
+✅ Uses ML + NLP + ATS logic  
+✅ Shows matched & missing skills  
+✅ Predicts ATS score  
+✅ Gives hiring recommendation  
+""")
 
 st.divider()
 
@@ -90,6 +103,21 @@ def clean_text(text):
 
     return text
 
+# =====================================================
+# SKILL EXTRACTION
+# =====================================================
+
+def extract_skills(text):
+
+    extracted = []
+
+    for skill in common_skills:
+
+        if skill.lower() in text:
+
+            extracted.append(skill)
+
+    return list(set(extracted))
 
 # =====================================================
 # MAIN LOGIC
@@ -253,6 +281,27 @@ if uploaded_file is not None:
     )
 
     st.progress(float(predicted_score) / 10)
+
+    # =================================================
+    # SCORE BREAKDOWN
+    # =================================================
+
+    st.subheader("📈 Score Breakdown")
+
+    st.write(
+        f"Skill Match Score : "
+        f"{round(base_score,1)}/10"
+    )
+
+    st.write(
+        f"Similarity Score : "
+        f"{round(similarity_score,1)}/10"
+    )
+
+    st.write(
+        f"ML Prediction Score : "
+        f"{round(ml_score,1)}/10"
+    )
 
     # =================================================
     # MATCHED SKILLS
