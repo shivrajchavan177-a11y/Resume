@@ -3,6 +3,8 @@ import pdfplumber
 import pickle
 import re
 
+from sklearn.metrics.pairwise import cosine_similarity
+
 from skills import JOB_ROLES
 
 # =====================================================
@@ -16,7 +18,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# LOAD MODEL FILES
+# LOAD FILES
 # =====================================================
 
 model = pickle.load(open("model.pkl", "rb"))
@@ -34,12 +36,15 @@ common_skills = pickle.load(
 st.title("📄 AI Resume Screening System")
 
 st.markdown("""
-This AI-powered ATS system:
+### AI-Powered ATS Resume Analyzer
+
+This system:
 
 ✅ Extracts skills from resume  
 ✅ Compares with industry job roles  
-✅ Predicts ATS score using ML  
+✅ Uses ML + NLP + ATS logic  
 ✅ Shows matched & missing skills  
+✅ Predicts ATS score  
 ✅ Gives hiring recommendation  
 """)
 
@@ -141,35 +146,6 @@ if uploaded_file is not None:
     required_skills = JOB_ROLES[job_role]
 
     # -------------------------------------------------
-    # Create Combined Text
-    # -------------------------------------------------
-
-    combined_text = (
-        " ".join(resume_skills)
-        + " "
-        + job_role.lower()
-    )
-
-    # -------------------------------------------------
-    # TF-IDF Transformation
-    # -------------------------------------------------
-
-    vector = tfidf.transform([combined_text])
-
-    # -------------------------------------------------
-    # Predict Score
-    # -------------------------------------------------
-
-    predicted_score = model.predict(vector)[0]
-
-    # Convert score to 1-10 scale
-    predicted_score = predicted_score * 10
-
-    predicted_score = max(1, min(10, predicted_score))
-
-    predicted_score = float(round(predicted_score, 1))
-
-    # -------------------------------------------------
     # Matched Skills
     # -------------------------------------------------
 
@@ -188,8 +164,92 @@ if uploaded_file is not None:
     )
 
     # -------------------------------------------------
-    # Final Decision
+    # TF-IDF INPUT
     # -------------------------------------------------
+
+    combined_text = (
+        " ".join(resume_skills)
+        + " "
+        + job_role.lower()
+    )
+
+    vector = tfidf.transform([combined_text])
+
+    # =================================================
+    # ML SCORE
+    # =================================================
+
+    ml_score = model.predict(vector)[0] * 10
+
+    ml_score = max(1, min(10, ml_score))
+
+    # =================================================
+    # SKILL MATCH SCORE
+    # =================================================
+
+    match_percent = (
+        len(matched_skills) /
+        len(required_skills)
+    )
+
+    base_score = match_percent * 10
+
+    # =================================================
+    # COSINE SIMILARITY SCORE
+    # =================================================
+
+    resume_text_for_similarity = (
+        " ".join(resume_skills)
+    )
+
+    role_text = (
+        " ".join(required_skills)
+    )
+
+    resume_vector = tfidf.transform(
+        [resume_text_for_similarity]
+    )
+
+    role_vector = tfidf.transform(
+        [role_text]
+    )
+
+    similarity = cosine_similarity(
+        resume_vector,
+        role_vector
+    )[0][0]
+
+    similarity_score = similarity * 10
+
+    # =================================================
+    # FINAL HYBRID SCORE
+    # =================================================
+
+    predicted_score = (
+        base_score * 0.85 +
+        similarity_score * 0.10 +
+        ml_score * 0.05
+    )
+
+    # -------------------------------------------------
+    # Prevent Unrealistic High Scores
+    # -------------------------------------------------
+
+    if len(matched_skills) <= 1:
+
+        predicted_score = min(predicted_score, 4)
+
+    elif len(matched_skills) <= 2:
+
+        predicted_score = min(predicted_score, 6)
+
+    predicted_score = max(1, min(10, predicted_score))
+
+    predicted_score = round(predicted_score, 1)
+
+    # =================================================
+    # FINAL DECISION
+    # =================================================
 
     if predicted_score >= 8:
 
@@ -222,9 +282,30 @@ if uploaded_file is not None:
 
     st.progress(float(predicted_score) / 10)
 
-    # -------------------------------------------------
+    # =================================================
+    # SCORE BREAKDOWN
+    # =================================================
+
+    st.subheader("📈 Score Breakdown")
+
+    st.write(
+        f"Skill Match Score : "
+        f"{round(base_score,1)}/10"
+    )
+
+    st.write(
+        f"Similarity Score : "
+        f"{round(similarity_score,1)}/10"
+    )
+
+    st.write(
+        f"ML Prediction Score : "
+        f"{round(ml_score,1)}/10"
+    )
+
+    # =================================================
     # MATCHED SKILLS
-    # -------------------------------------------------
+    # =================================================
 
     st.subheader("✅ Matched Skills")
 
@@ -238,9 +319,9 @@ if uploaded_file is not None:
 
         st.warning("No matched skills found")
 
-    # -------------------------------------------------
+    # =================================================
     # MISSING SKILLS
-    # -------------------------------------------------
+    # =================================================
 
     st.subheader("❌ Missing Skills")
 
@@ -254,9 +335,9 @@ if uploaded_file is not None:
 
         st.success("No missing skills")
 
-    # -------------------------------------------------
-    # EXTRACTED RESUME SKILLS
-    # -------------------------------------------------
+    # =================================================
+    # EXTRACTED SKILLS
+    # =================================================
 
     st.subheader("🛠 Extracted Resume Skills")
 
@@ -268,9 +349,9 @@ if uploaded_file is not None:
 
         st.warning("No skills extracted")
 
-    # -------------------------------------------------
+    # =================================================
     # FINAL DECISION
-    # -------------------------------------------------
+    # =================================================
 
     st.subheader("📌 Final Decision")
 
@@ -286,9 +367,9 @@ if uploaded_file is not None:
 
         st.error("REJECTED")
 
-    # -------------------------------------------------
+    # =================================================
     # RECOMMENDED SKILLS
-    # -------------------------------------------------
+    # =================================================
 
     st.subheader("📚 Recommended Skills to Learn")
 
@@ -311,5 +392,6 @@ if uploaded_file is not None:
 st.divider()
 
 st.caption(
-    "AI Resume Screening System using NLP, TF-IDF and XGBoost"
+    "AI Resume Screening System using "
+    "NLP, TF-IDF, XGBoost and Hybrid ATS Logic"
 )
