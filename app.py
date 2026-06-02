@@ -2,9 +2,18 @@ import streamlit as st
 import pdfplumber
 import pickle
 import re
-import numpy as np
 
 from skills import JOB_ROLES
+
+# =====================================================
+# PAGE CONFIG
+# =====================================================
+
+st.set_page_config(
+    page_title="AI Resume Screening System",
+    page_icon="📄",
+    layout="centered"
+)
 
 # =====================================================
 # LOAD MODEL FILES
@@ -19,38 +28,25 @@ common_skills = pickle.load(
 )
 
 # =====================================================
-# PAGE CONFIG
-# =====================================================
-
-st.set_page_config(
-    page_title="AI Resume Screening System",
-    page_icon="📄",
-    layout="centered"
-)
-
-# =====================================================
 # TITLE
 # =====================================================
 
 st.title("📄 AI Resume Screening System")
 
-st.markdown(
-    """
-    Upload your resume and select a job role.
-    
-    The AI model will:
-    - Extract skills
-    - Compare with industry requirements
-    - Predict ATS match score
-    - Show matched & missing skills
-    - Give hiring recommendation
-    """
-)
+st.markdown("""
+This AI-powered ATS system:
+
+✅ Extracts skills from resume  
+✅ Compares with industry job roles  
+✅ Predicts ATS score using ML  
+✅ Shows matched & missing skills  
+✅ Gives hiring recommendation  
+""")
 
 st.divider()
 
 # =====================================================
-# JOB ROLE SELECTION
+# JOB ROLE
 # =====================================================
 
 job_role = st.selectbox(
@@ -68,7 +64,7 @@ uploaded_file = st.file_uploader(
 )
 
 # =====================================================
-# EXTRACT PDF TEXT
+# PDF TEXT EXTRACTION
 # =====================================================
 
 def extract_text(pdf_file):
@@ -103,7 +99,7 @@ def clean_text(text):
     return text
 
 # =====================================================
-# EXTRACT SKILLS
+# SKILL EXTRACTION
 # =====================================================
 
 def extract_skills(text):
@@ -145,7 +141,7 @@ if uploaded_file is not None:
     required_skills = JOB_ROLES[job_role]
 
     # -------------------------------------------------
-    # ML Prediction
+    # Create Combined Text
     # -------------------------------------------------
 
     combined_text = (
@@ -154,16 +150,24 @@ if uploaded_file is not None:
         + job_role.lower()
     )
 
+    # -------------------------------------------------
+    # TF-IDF Transformation
+    # -------------------------------------------------
+
     vector = tfidf.transform([combined_text])
+
+    # -------------------------------------------------
+    # Predict Score
+    # -------------------------------------------------
 
     predicted_score = model.predict(vector)[0]
 
-    # Convert to 1-10 scale
+    # Convert score to 1-10 scale
     predicted_score = predicted_score * 10
 
     predicted_score = max(1, min(10, predicted_score))
 
-    predicted_score = round(predicted_score, 1)
+    predicted_score = float(round(predicted_score, 1))
 
     # -------------------------------------------------
     # Matched Skills
@@ -208,7 +212,7 @@ if uploaded_file is not None:
     st.subheader("📊 Resume Screening Result")
 
     # -------------------------------------------------
-    # Score
+    # ATS SCORE
     # -------------------------------------------------
 
     st.metric(
@@ -216,10 +220,10 @@ if uploaded_file is not None:
         value=f"{predicted_score}/10"
     )
 
-    st.progress(predicted_score / 10)
+    st.progress(float(predicted_score) / 10)
 
     # -------------------------------------------------
-    # Matched Skills
+    # MATCHED SKILLS
     # -------------------------------------------------
 
     st.subheader("✅ Matched Skills")
@@ -235,7 +239,7 @@ if uploaded_file is not None:
         st.warning("No matched skills found")
 
     # -------------------------------------------------
-    # Missing Skills
+    # MISSING SKILLS
     # -------------------------------------------------
 
     st.subheader("❌ Missing Skills")
@@ -251,7 +255,7 @@ if uploaded_file is not None:
         st.success("No missing skills")
 
     # -------------------------------------------------
-    # Extracted Resume Skills
+    # EXTRACTED RESUME SKILLS
     # -------------------------------------------------
 
     st.subheader("🛠 Extracted Resume Skills")
@@ -265,7 +269,7 @@ if uploaded_file is not None:
         st.warning("No skills extracted")
 
     # -------------------------------------------------
-    # Final Decision
+    # FINAL DECISION
     # -------------------------------------------------
 
     st.subheader("📌 Final Decision")
@@ -283,7 +287,7 @@ if uploaded_file is not None:
         st.error("REJECTED")
 
     # -------------------------------------------------
-    # Recommendations
+    # RECOMMENDED SKILLS
     # -------------------------------------------------
 
     st.subheader("📚 Recommended Skills to Learn")
@@ -299,3 +303,13 @@ if uploaded_file is not None:
         st.success(
             "Your resume matches most required skills."
         )
+
+# =====================================================
+# FOOTER
+# =====================================================
+
+st.divider()
+
+st.caption(
+    "AI Resume Screening System using NLP, TF-IDF and XGBoost"
+)
