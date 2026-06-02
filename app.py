@@ -354,7 +354,7 @@ if uploaded_files:
     # TOP STATS
     # =====================================================
 
-    top1, top2, top3 = st.columns(3)
+    top1, top2 = st.columns(2)
 
     with top1:
         st.metric(
@@ -371,18 +371,6 @@ if uploaded_files:
         st.metric(
             "Shortlisted",
             shortlisted_count
-        )
-
-    with top3:
-        avg_score = round(
-            sum(r["score"] for r in results)
-            / len(results),
-            1
-        )
-
-        st.metric(
-            "Average Score",
-            avg_score
         )
 
     st.divider()
@@ -422,42 +410,45 @@ if uploaded_files:
                         </div>
 
                         <br><br>
-
-                        <b>Matched Skills</b><br>
                         """,
                         unsafe_allow_html=True
                     )
 
-                    for skill in result["matched"]:
+                    # =====================================
+                    # MATCHED + MISSING SIDE BY SIDE
+                    # =====================================
 
-                        st.markdown(
-                            f"""
-                            <span class='skill-tag-green'>
-                            {skill}
-                            </span>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                    left, right = st.columns(2)
 
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    with left:
 
-                    st.markdown(
-                        """
-                        <b>Missing Skills</b><br>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                        st.markdown("#### Matched")
 
-                    for skill in result["missing"]:
+                        for skill in result["matched"]:
 
-                        st.markdown(
-                            f"""
-                            <span class='skill-tag-red'>
-                            {skill}
-                            </span>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                            st.markdown(
+                                f"""
+                                <span class='skill-tag-green'>
+                                {skill}
+                                </span>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                    with right:
+
+                        st.markdown("#### Missing")
+
+                        for skill in result["missing"]:
+
+                            st.markdown(
+                                f"""
+                                <span class='skill-tag-red'>
+                                {skill}
+                                </span>
+                                """,
+                                unsafe_allow_html=True
+                            )
 
                     st.markdown(
                         "</div>",
