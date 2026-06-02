@@ -24,14 +24,15 @@ st.markdown("""
 <style>
 
 .main {
-    background-color: #F5F7FA;
+    background-color: #F4F7FB;
 }
 
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
 }
 
-h1, h2, h3 {
+h1,h2,h3 {
     color: #1E293B;
 }
 
@@ -39,60 +40,67 @@ section[data-testid="stSidebar"] {
     background-color: #E2E8F0;
 }
 
-.metric-card {
-    background-color: #FFFFFF;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+.resume-card {
+    background-color: white;
+    padding: 18px;
+    border-radius: 18px;
+    box-shadow: 0px 3px 10px rgba(0,0,0,0.08);
+    margin-bottom: 15px;
 }
 
-.metric-card h2 {
-    color: #2563EB;
-    margin: 0;
-}
-
-.metric-card p {
-    color: #475569;
-    margin-top: 5px;
-}
-
-.skill-box {
-    padding: 12px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    font-weight: 600;
-    color: white;
-}
-
-.matched {
-    background-color: #22C55E;
-}
-
-.missing {
-    background-color: #EF4444;
-}
-
-.decision-box {
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 30px;
+.score-text {
+    font-size: 32px;
     font-weight: bold;
-    color: white;
-    margin-top: 20px;
+    color: #2563EB;
+}
+
+.skill-tag-green {
+    display: inline-block;
+    background-color: #DCFCE7;
+    color: #166534;
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.skill-tag-red {
+    display: inline-block;
+    background-color: #FEE2E2;
+    color: #991B1B;
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin: 4px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .shortlisted {
     background-color: #16A34A;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 25px;
+    display: inline-block;
+    font-weight: bold;
 }
 
 .maybe {
     background-color: #F59E0B;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 25px;
+    display: inline-block;
+    font-weight: bold;
 }
 
 .rejected {
     background-color: #DC2626;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 25px;
+    display: inline-block;
+    font-weight: bold;
 }
 
 </style>
@@ -134,13 +142,13 @@ job_role = st.sidebar.selectbox(
 )
 
 uploaded_files = st.sidebar.file_uploader(
-    "Upload Multiple Resume PDFs",
+    "Upload Resume PDFs",
     type=["pdf"],
     accept_multiple_files=True
 )
 
 # =====================================================
-# PDF TEXT EXTRACTION
+# EXTRACT TEXT
 # =====================================================
 
 def extract_text(pdf_file):
@@ -164,18 +172,16 @@ def extract_text(pdf_file):
 
 def clean_text(text):
 
-    text = text.lower()
-
     text = re.sub(
         r'[^a-zA-Z0-9+# ]',
         ' ',
-        text
+        text.lower()
     )
 
     return text
 
 # =====================================================
-# SKILL EXTRACTION
+# EXTRACT SKILLS
 # =====================================================
 
 def extract_skills(text):
@@ -203,13 +209,7 @@ if uploaded_files:
     for uploaded_file in uploaded_files:
 
         # -------------------------------------------------
-        # Resume Name
-        # -------------------------------------------------
-
-        candidate_name = uploaded_file.name
-
-        # -------------------------------------------------
-        # Extract Resume Text
+        # EXTRACT TEXT
         # -------------------------------------------------
 
         resume_text = extract_text(uploaded_file)
@@ -217,13 +217,13 @@ if uploaded_files:
         resume_text = clean_text(resume_text)
 
         # -------------------------------------------------
-        # Extract Skills
+        # EXTRACT SKILLS
         # -------------------------------------------------
 
         resume_skills = extract_skills(resume_text)
 
         # -------------------------------------------------
-        # Matched Skills
+        # MATCHED / MISSING
         # -------------------------------------------------
 
         matched_skills = list(
@@ -231,17 +231,13 @@ if uploaded_files:
             set(required_skills)
         )
 
-        # -------------------------------------------------
-        # Missing Skills
-        # -------------------------------------------------
-
         missing_skills = list(
             set(required_skills) -
             set(resume_skills)
         )
 
         # -------------------------------------------------
-        # TF-IDF INPUT
+        # MODEL INPUT
         # -------------------------------------------------
 
         combined_text = (
@@ -252,17 +248,17 @@ if uploaded_files:
 
         vector = tfidf.transform([combined_text])
 
-        # =================================================
+        # -------------------------------------------------
         # ML SCORE
-        # =================================================
+        # -------------------------------------------------
 
         ml_score = model.predict(vector)[0] * 10
 
         ml_score = max(1, min(10, ml_score))
 
-        # =================================================
-        # SKILL MATCH SCORE
-        # =================================================
+        # -------------------------------------------------
+        # SKILL SCORE
+        # -------------------------------------------------
 
         match_percent = (
             len(matched_skills) /
@@ -271,24 +267,16 @@ if uploaded_files:
 
         base_score = match_percent * 10
 
-        # =================================================
-        # COSINE SIMILARITY
-        # =================================================
-
-        resume_text_for_similarity = (
-            " ".join(resume_skills)
-        )
-
-        role_text = (
-            " ".join(required_skills)
-        )
+        # -------------------------------------------------
+        # SIMILARITY
+        # -------------------------------------------------
 
         resume_vector = tfidf.transform(
-            [resume_text_for_similarity]
+            [" ".join(resume_skills)]
         )
 
         role_vector = tfidf.transform(
-            [role_text]
+            [" ".join(required_skills)]
         )
 
         similarity = cosine_similarity(
@@ -298,17 +286,15 @@ if uploaded_files:
 
         similarity_score = similarity * 10
 
-        # =================================================
+        # -------------------------------------------------
         # FINAL SCORE
-        # =================================================
+        # -------------------------------------------------
 
         predicted_score = (
             base_score * 0.85 +
             similarity_score * 0.10 +
             ml_score * 0.05
         )
-
-        # Prevent Unrealistic High Scores
 
         if len(matched_skills) <= 1:
 
@@ -322,9 +308,9 @@ if uploaded_files:
 
         predicted_score = round(predicted_score, 1)
 
-        # =================================================
+        # -------------------------------------------------
         # FINAL DECISION
-        # =================================================
+        # -------------------------------------------------
 
         if predicted_score >= 8:
 
@@ -341,17 +327,17 @@ if uploaded_files:
             decision = "REJECTED"
             decision_class = "rejected"
 
-        # =================================================
-        # STORE RESULTS
-        # =================================================
+        # -------------------------------------------------
+        # SAVE RESULT
+        # -------------------------------------------------
 
         results.append({
-            "name": candidate_name,
+            "name": uploaded_file.name,
             "score": predicted_score,
             "decision": decision,
             "decision_class": decision_class,
-            "matched": matched_skills,
-            "missing": missing_skills
+            "matched": matched_skills[:5],
+            "missing": missing_skills[:5]
         })
 
     # =====================================================
@@ -365,89 +351,121 @@ if uploaded_files:
     )
 
     # =====================================================
-    # DISPLAY RESULTS
+    # TOP STATS
     # =====================================================
 
-    st.subheader("Resume Ranking")
+    top1, top2, top3 = st.columns(3)
 
-    rank = 1
+    with top1:
+        st.metric(
+            "Total Resumes",
+            len(results)
+        )
 
-    for result in results:
+    with top2:
+        shortlisted_count = len([
+            r for r in results
+            if r["decision"] == "SHORTLISTED"
+        ])
 
-        st.markdown(f"""
-        <div class='metric-card'>
-            <h2>#{rank} - {result['name']}</h2>
-            <h2>{result['score']}/10</h2>
-            <p>ATS Match Score</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            "Shortlisted",
+            shortlisted_count
+        )
 
-        st.progress(float(result['score']) / 10)
+    with top3:
+        avg_score = round(
+            sum(r["score"] for r in results)
+            / len(results),
+            1
+        )
 
-        # -------------------------------------------------
-        # Skills Columns
-        # -------------------------------------------------
+        st.metric(
+            "Average Score",
+            avg_score
+        )
 
-        col1, col2 = st.columns(2)
+    st.divider()
 
-        with col1:
+    # =====================================================
+    # SHOW 2 RESUMES PER ROW
+    # =====================================================
 
-            st.subheader("Matched Skills")
+    for i in range(0, len(results), 2):
 
-            if result["matched"]:
+        cols = st.columns(2)
 
-                for skill in result["matched"]:
+        for j in range(2):
+
+            if i + j < len(results):
+
+                result = results[i + j]
+
+                with cols[j]:
 
                     st.markdown(
                         f"""
-                        <div class='skill-box matched'>
-                        {skill}
+                        <div class='resume-card'>
+
+                        <h3>
+                        {result['name']}
+                        </h3>
+
+                        <div class='score-text'>
+                        {result['score']}/10
                         </div>
+
+                        <br>
+
+                        <div class='{result['decision_class']}'>
+                        {result['decision']}
+                        </div>
+
+                        <br><br>
+
+                        <b>Matched Skills</b><br>
                         """,
                         unsafe_allow_html=True
                     )
 
-            else:
+                    for skill in result["matched"]:
 
-                st.warning("No matched skills")
+                        st.markdown(
+                            f"""
+                            <span class='skill-tag-green'>
+                            {skill}
+                            </span>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
-        with col2:
-
-            st.subheader("Missing Skills")
-
-            if result["missing"]:
-
-                for skill in result["missing"]:
+                    st.markdown("<br>", unsafe_allow_html=True)
 
                     st.markdown(
-                        f"""
-                        <div class='skill-box missing'>
-                        {skill}
-                        </div>
+                        """
+                        <b>Missing Skills</b><br>
                         """,
                         unsafe_allow_html=True
                     )
 
-            else:
+                    for skill in result["missing"]:
 
-                st.success("No missing skills")
+                        st.markdown(
+                            f"""
+                            <span class='skill-tag-red'>
+                            {skill}
+                            </span>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
-        # -------------------------------------------------
-        # Final Decision
-        # -------------------------------------------------
-
-        st.markdown(f"""
-        <div class='decision-box {result['decision_class']}'>
-            {result['decision']}
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.divider()
-
-        rank += 1
+                    st.markdown(
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
 
 else:
 
     st.info(
-        "Upload one or more resume PDFs to start screening."
+        "Upload multiple resume PDFs to start screening."
     )
