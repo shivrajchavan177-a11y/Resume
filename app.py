@@ -12,8 +12,7 @@ from skills import JOB_ROLES
 # =====================================================
 
 st.set_page_config(
-    page_title="AI Resume Screening System",
-    page_icon="📄",
+    page_title="Smart Resume Screening System",
     layout="centered"
 )
 
@@ -33,20 +32,7 @@ common_skills = pickle.load(
 # TITLE
 # =====================================================
 
-st.title("📄 AI Resume Screening System")
-
-st.markdown("""
-### AI-Powered ATS Resume Analyzer
-
-This system:
-
-✅ Extracts skills from resume  
-✅ Compares with industry job roles  
-✅ Uses ML + NLP + ATS logic  
-✅ Shows matched & missing skills  
-✅ Predicts ATS score  
-✅ Gives hiring recommendation  
-""")
+st.title("Smart Resume Screening System")
 
 st.divider()
 
@@ -269,7 +255,7 @@ if uploaded_file is not None:
 
     st.divider()
 
-    st.subheader("📊 Resume Screening Result")
+    st.subheader("Resume Screening Result")
 
     # -------------------------------------------------
     # ATS SCORE
@@ -283,31 +269,10 @@ if uploaded_file is not None:
     st.progress(float(predicted_score) / 10)
 
     # =================================================
-    # SCORE BREAKDOWN
-    # =================================================
-
-    st.subheader("📈 Score Breakdown")
-
-    st.write(
-        f"Skill Match Score : "
-        f"{round(base_score,1)}/10"
-    )
-
-    st.write(
-        f"Similarity Score : "
-        f"{round(similarity_score,1)}/10"
-    )
-
-    st.write(
-        f"ML Prediction Score : "
-        f"{round(ml_score,1)}/10"
-    )
-
-    # =================================================
     # MATCHED SKILLS
     # =================================================
 
-    st.subheader("✅ Matched Skills")
+    st.subheader("Matched Skills")
 
     if matched_skills:
 
@@ -323,7 +288,7 @@ if uploaded_file is not None:
     # MISSING SKILLS
     # =================================================
 
-    st.subheader("❌ Missing Skills")
+    st.subheader("Missing Skills")
 
     if missing_skills:
 
@@ -336,24 +301,10 @@ if uploaded_file is not None:
         st.success("No missing skills")
 
     # =================================================
-    # EXTRACTED SKILLS
-    # =================================================
-
-    st.subheader("🛠 Extracted Resume Skills")
-
-    if resume_skills:
-
-        st.write(", ".join(resume_skills))
-
-    else:
-
-        st.warning("No skills extracted")
-
-    # =================================================
     # FINAL DECISION
     # =================================================
 
-    st.subheader("📌 Final Decision")
+    st.subheader("Final Decision")
 
     if decision == "SHORTLISTED":
 
@@ -366,32 +317,3 @@ if uploaded_file is not None:
     else:
 
         st.error("REJECTED")
-
-    # =================================================
-    # RECOMMENDED SKILLS
-    # =================================================
-
-    st.subheader("📚 Recommended Skills to Learn")
-
-    if missing_skills:
-
-        for skill in missing_skills:
-
-            st.info(skill)
-
-    else:
-
-        st.success(
-            "Your resume matches most required skills."
-        )
-
-# =====================================================
-# FOOTER
-# =====================================================
-
-st.divider()
-
-st.caption(
-    "AI Resume Screening System using "
-    "NLP, TF-IDF, XGBoost and Hybrid ATS Logic"
-)
